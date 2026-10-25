@@ -1,5 +1,6 @@
 #!/bin/sh
 # Runs when labwc starts. Starts Brave under a supervisor and clears the
 # crash counter once the session has stayed up for 20 seconds.
+( waybar --config /etc/xdg/waybar/config --style /etc/xdg/waybar/style.css ) >/tmp/brave-os-waybar.log 2>&1 &
 ( sleep 20; rm -f "/dev/shm/brave-os-labwc-starts-$(id -u)" ) &
 /usr/local/bin/brave-os-supervise &

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Waybar starts hidden. Either configured keyboard shortcut toggles it.
+pkill -USR1 -x waybar 2>/dev/null || true

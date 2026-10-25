@@ -1,0 +1,39 @@
+{
+  "layer": "top",
+  "position": "top",
+  "start_hidden": true,
+  "height": 30,
+  "spacing": 8,
+  "modules-left": ["custom/brand"],
+  "modules-center": ["clock"],
+  "modules-right": ["network", "battery"],
+  "custom/brand": {
+    "format": "Brow OS",
+    "tooltip": false
+  },
+  "clock": {
+    "format": "{:%a %d %b  %H:%M}",
+    "tooltip": false
+  },
+  "network": {
+    "format-wifi": "Wi-Fi  {essid}  {signalStrength}%",
+    "format-ethernet": "Wired network",
+    "format-disconnected": "Connect Wi-Fi",
+    "format-disabled": "Wi-Fi off",
+    "tooltip-format-wifi": "{essid} · {signalStrength}% signal\nClick to choose a network",
+    "tooltip-format-ethernet": "Wired connection · {ipaddr}",
+    "tooltip-format-disconnected": "Click to scan and connect to Wi-Fi",
+    "on-click": "/usr/local/bin/brave-os-wifi-gui"
+  },
+  "battery": {
+    "interval": 30,
+    "states": {
+      "warning": 30,
+      "critical": 15
+    },
+    "format": "Battery  {capacity}%",
+    "format-charging": "Charging  {capacity}%",
+    "format-full": "Battery  {capacity}%",
+    "tooltip-format": "{capacity}% · {timeTo}"
+  }
+}

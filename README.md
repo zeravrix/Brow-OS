@@ -181,26 +181,15 @@ Brow OS provides keyboard shortcuts for accessing system functions.
 | Shortcut | Function |
 |---|---|
 | **Windows / Super** | Open terminal |
-| **Super + Space** | Open system menu |
-| **Ctrl + Shift + Delete** | Open system menu |
+| **Super + Space** | Show or hide the top bar |
+| **Ctrl + Shift + Delete** | Show or hide the top bar |
 | **Alt + Tab** | Switch applications |
 
-The system menu includes **Connect to Wi-Fi**, which opens a graphical network
-picker and asks for the password when needed. **Battery status** shows the
-laptop battery percentage when a battery is detected. Both are available from
-the same **Super + Space** menu.
+The single top bar shows the clock, Wi-Fi state and laptop battery percentage.
+Press either bar shortcut to show or hide it. Click the Wi-Fi status to open a
+network picker; secured networks ask for their password in a graphical prompt.
 
-The system menu provides access to functions such as:
-
-- Wi-Fi
-- Restart browser
-- Terminal
-- Bluetooth
-- USB storage
-- Install Brow OS
-- Save session
-- Restart
-- Shutdown
+The regular Brave address bar and tabs remain available as described above.
 
 ---
 

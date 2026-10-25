@@ -1,0 +1,35 @@
+* {
+	font-family: "Liberation Sans", sans-serif;
+	font-size: 12px;
+	min-height: 0;
+}
+
+window#waybar {
+	background: rgba(24, 29, 40, 0.96);
+	color: #f4f6fb;
+	border-bottom: 1px solid #3b465d;
+}
+
+#custom-brand,
+#clock,
+#network,
+#battery {
+	padding: 0 12px;
+}
+
+#custom-brand {
+	font-weight: bold;
+	color: #8ccaff;
+}
+
+#network:hover {
+	background: #34435c;
+}
+
+#battery.warning {
+	color: #ffd166;
+}
+
+#battery.critical {
+	color: #ff7272;
+}

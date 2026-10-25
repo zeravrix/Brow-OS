@@ -13,7 +13,7 @@ for f in $inc/usr/local/bin/* $inc/etc/profile.d/*.sh image/auto/config \
 	image/config/hooks/live/*.chroot image/config/hooks/live/*.hook.binary host-tools/*.sh; do
 	check "sh -n $f" sh -n "$f"
 done
-for f in $inc/etc/xdg/labwc/menu.xml $inc/etc/xdg/labwc/rc.xml; do
+for f in $inc/etc/xdg/labwc/rc.xml; do
 	command -v xmllint >/dev/null 2>&1 && check "xmllint $f" xmllint --noout "$f"
 done
 command -v jq >/dev/null 2>&1 && check "jq policy" jq . $inc/etc/brave/policies/managed/brave-os.json

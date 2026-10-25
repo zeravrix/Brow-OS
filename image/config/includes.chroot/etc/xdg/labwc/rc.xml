@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!--
   Brave OS labwc configuration (system-wide, read from /etc/xdg/labwc).
-  Press Super+Space (Windows key + Space) or Ctrl+Shift+Delete to open the menu.
+  Press Super+Space or Ctrl+Shift+Delete to show or hide the top bar.
 -->
 <labwc_config>
   <keyboard>
@@ -11,10 +11,10 @@
       <action name="Execute" command="foot" />
     </keybind>
     <keybind key="W-space">
-      <action name="ShowMenu" menu="root-menu" />
+      <action name="Execute" command="/usr/local/bin/brave-os-toggle-bar" />
     </keybind>
     <keybind key="C-S-Delete">
-      <action name="ShowMenu" menu="root-menu" />
+      <action name="Execute" command="/usr/local/bin/brave-os-toggle-bar" />
     </keybind>
     <keybind key="XF86_PowerOff">
       <action name="Execute" command="/usr/local/bin/brave-os-power shutdown" />

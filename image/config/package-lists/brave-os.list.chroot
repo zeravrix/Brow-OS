@@ -68,9 +68,10 @@ wireplumber
 alsa-utils
 brightnessctl
 
-# --- tiny helpers used by the menu ---
+# --- small interaction tools ---
 fuzzel
 foot
+waybar
 
 # --- fonts (do not trim: missing fonts break web pages) ---
 fonts-liberation

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Opens the graphical Wi-Fi picker used by the top bar and system menu.
+# Opens the graphical Wi-Fi picker from the top bar.
 set -eu
 
 cache="${XDG_RUNTIME_DIR:-/tmp}/brave-os-wifi.list"
