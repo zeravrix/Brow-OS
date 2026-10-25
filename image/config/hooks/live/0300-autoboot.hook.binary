@@ -1,0 +1,40 @@
+#!/bin/sh
+# Start the default live entry automatically and remove Debian's splash art.
+# Syslinux counts TIMEOUT in tenths of a second; 30 gives a short recovery
+# window while booting without an Enter key press. GRUB keeps a similar hidden
+# recovery window for UEFI systems.
+set -eu
+
+isolinux_cfg="binary/isolinux/isolinux.cfg"
+if [ -f "$isolinux_cfg" ]; then
+	# A zero timeout waits forever at the Debian splash screen.
+	sed -i -E 's/^([[:space:]]*TIMEOUT[[:space:]]+)0([[:space:]]*)$/\130\2/' "$isolinux_cfg"
+	# Suppress the interactive boot prompt, menu and Debian background image.
+	sed -i -E 's/^([[:space:]]*)PROMPT[[:space:]]+1([[:space:]]*)$/\1PROMPT 0\2/' "$isolinux_cfg"
+	grep -q '^MENU HIDDEN$' "$isolinux_cfg" || sed -i '1i MENU HIDDEN' "$isolinux_cfg"
+	# Name the default entry for the user's OS rather than Debian Live.
+	sed -i -E 's/^([[:space:]]*MENU TITLE[[:space:]]+).*/\1Brow OS/' "$isolinux_cfg"
+	# The bootloader theme may put its background directive in an included file.
+	find binary/isolinux -type f \( -name '*.cfg' -o -name '*.cfg.in' \) \
+		-exec sed -i -E '/^[[:space:]]*MENU BACKGROUND[[:space:]]+/d' {} +
+fi
+
+grub_cfg="binary/boot/grub/grub.cfg"
+if [ -f "$grub_cfg" ]; then
+	# UEFI boot should also continue automatically; Shift/Esc can still expose
+	# the menu for recovery and troubleshooting.
+	if grep -qE '^[[:space:]]*set timeout_style=' "$grub_cfg"; then
+		sed -i -E 's/^[[:space:]]*set timeout_style=.*/set timeout_style=hidden/' "$grub_cfg"
+	else
+		sed -i '1i set timeout_style=hidden' "$grub_cfg"
+	fi
+	if grep -qE '^[[:space:]]*set timeout=' "$grub_cfg"; then
+		sed -i -E 's/^[[:space:]]*set timeout=.*/set timeout=3/' "$grub_cfg"
+	else
+		sed -i '1i set timeout=3' "$grub_cfg"
+	fi
+	# Remove Debian's themed backdrop when the generated file has one.
+	sed -i -E '/^[[:space:]]*(set theme=|background_image )/d' "$grub_cfg"
+	find binary/boot/grub -type f -name '*.cfg' \
+		-exec sed -i -E '/^[[:space:]]*(set theme=|background_image )/d' {} +
+fi

@@ -1,11 +1,13 @@
-# Firmware bundled in the image so Wi-Fi and graphics work without a download.
-# These come from Debian's non-free-firmware section.
+# Keep the common laptop firmware needed by the project's low-power Intel
+# target and common Wi-Fi adapters. The aggregate firmware-linux-nonfree and
+# firmware-misc-nonfree packages pull unrelated GPU/server blobs (including
+# NVIDIA and Marvell bundles) into every ISO; brave-os-hwdetect can install
+# additional signed Debian firmware when a connected device needs it.
 firmware-linux-free
-firmware-linux-nonfree
 firmware-iwlwifi
 firmware-realtek
 firmware-atheros
 firmware-brcm80211
-firmware-misc-nonfree
+firmware-intel-graphics
 intel-microcode
 amd64-microcode

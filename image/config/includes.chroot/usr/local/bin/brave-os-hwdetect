@@ -47,7 +47,8 @@ else
 			mediatek/* | mt7*) pkgs="$pkgs firmware-mediatek" ;;
 			amdgpu/* | radeon/*) pkgs="$pkgs firmware-amd-graphics" ;;
 			i915/*) pkgs="$pkgs firmware-intel-graphics" ;;
-			*) pkgs="$pkgs firmware-misc-nonfree" ;;
+			nvidia/*) pkgs="$pkgs firmware-nvidia-graphics" ;;
+			*) log "no curated firmware package mapping for $f; skipping" ;;
 		esac
 	done
 	pkgs=$(printf '%s\n' $pkgs | sort -u)
