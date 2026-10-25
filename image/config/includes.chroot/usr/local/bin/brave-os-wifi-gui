@@ -1,0 +1,39 @@
+#!/bin/sh
+# Opens the graphical Wi-Fi picker used by the top bar and system menu.
+set -eu
+
+cache="${XDG_RUNTIME_DIR:-/tmp}/brave-os-wifi.list"
+tab=$(printf '\t')
+
+# Turn Wi-Fi on when a user explicitly asks to connect.
+nmcli radio wifi on >/dev/null 2>&1 || true
+nmcli dev wifi rescan >/dev/null 2>&1 || true
+
+# Keep the same parsed and signal-sorted cache used by the console menu.
+nmcli -t -f SSID,SIGNAL,SECURITY dev wifi list 2>/dev/null \
+	| sed -E -n 's/^(.+):([0-9]+):([^:]*)$/\1\t\2\t\3/p' \
+	| sed -e 's/\\:/:/g' -e 's/\\\\/\\/g' \
+	| sort -t "$tab" -k2,2nr \
+	| awk -F '\t' '$1 != "" && !seen[$1]++' > "$cache"
+
+if [ ! -s "$cache" ]; then
+	printf '%s\n' 'No Wi-Fi networks found. Try again after checking the adapter.' \
+		| fuzzel --dmenu --prompt 'Wi-Fi: ' >/dev/null 2>&1 || true
+	exit 0
+fi
+
+choices=$(awk -F '\t' '
+{
+	label = sprintf("%02d | %s (%s%%)", NR, $1, $2)
+	if ($3 != "" && $3 != "--")
+		label = label " [secured]"
+	print label
+}' "$cache")
+
+choice=$(printf '%s\n' "$choices" | fuzzel --dmenu --prompt 'Choose Wi-Fi: ' --lines 10) || exit 0
+index=$(printf '%s\n' "$choice" | sed -E 's/^([0-9]+) \|.*/\1/')
+case "$index" in
+	'' | *[!0-9]*) exit 0 ;;
+esac
+
+exec /usr/local/bin/brave-os-wifi-connect "$index"

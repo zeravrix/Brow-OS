@@ -1,0 +1,39 @@
+#!/bin/sh
+# Shows the current laptop battery percentage in the side system menu.
+set -eu
+
+battery=
+for path in /sys/class/power_supply/BAT*; do
+	if [ -d "$path" ]; then
+		battery=$path
+		break
+	fi
+done
+
+if [ -z "$battery" ]; then
+	echo '<openbox_pipe_menu><item label="No battery detected" /></openbox_pipe_menu>'
+	exit 0
+fi
+
+if [ ! -r "$battery/capacity" ]; then
+	echo '<openbox_pipe_menu><item label="Battery percentage unavailable" /></openbox_pipe_menu>'
+	exit 0
+fi
+
+capacity=$(cat "$battery/capacity" 2>/dev/null || true)
+status=$(cat "$battery/status" 2>/dev/null || echo Unknown)
+case "$capacity" in
+	'' | *[!0-9]*)
+		echo '<openbox_pipe_menu><item label="Battery percentage unavailable" /></openbox_pipe_menu>'
+		exit 0
+		;;
+esac
+
+case "$status" in
+	Charging) state='charging' ;;
+	Discharging) state='on battery' ;;
+	Full) state='fully charged' ;;
+	*) state='status unknown' ;;
+esac
+
+printf '<openbox_pipe_menu><item label="Battery: %s%% (%s)" /></openbox_pipe_menu>\n' "$capacity" "$state"

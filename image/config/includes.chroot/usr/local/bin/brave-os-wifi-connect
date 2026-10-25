@@ -1,5 +1,5 @@
 #!/bin/sh
-# Connects to the Nth network from the cache written by brave-os-wifi-pipemenu.
+# Connects to the Nth network from the cache written by brave-os-wifi-gui.
 # Asks for a password with fuzzel if the network is secured and not yet saved.
 # Falls back to the text network tool if fuzzel cannot do it.
 cache="${XDG_RUNTIME_DIR:-/tmp}/brave-os-wifi.list"

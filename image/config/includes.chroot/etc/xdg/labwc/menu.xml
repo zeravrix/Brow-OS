@@ -2,7 +2,14 @@
 <!-- Brave OS root menu. The Wi-Fi list is generated on demand by a script. -->
 <openbox_menu>
   <menu id="root-menu" label="Brave OS">
-    <menu id="wifi-menu" label="Wi-Fi networks" execute="/usr/local/bin/brave-os-wifi-pipemenu" />
+    <item label="Connect to Wi-Fi…">
+      <action name="Execute" command="/usr/local/bin/brave-os-wifi-gui" />
+    </item>
+    <menu id="battery-menu" label="Battery status" execute="/usr/local/bin/brave-os-battery-pipemenu" />
+    <item label="Advanced network setup">
+      <action name="Execute" command="foot -e nmtui" />
+    </item>
+    <separator />
     <item label="Open or restart Brave">
       <action name="Execute" command="/usr/local/bin/brave-os-relaunch" />
     </item>

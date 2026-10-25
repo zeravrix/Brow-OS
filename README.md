@@ -182,8 +182,13 @@ Brow OS provides keyboard shortcuts for accessing system functions.
 |---|---|
 | **Windows / Super** | Open terminal |
 | **Super + Space** | Open system menu |
-| **Ctrl + Alt + Delete** | Open system menu |
+| **Ctrl + Shift + Delete** | Open system menu |
 | **Alt + Tab** | Switch applications |
+
+The system menu includes **Connect to Wi-Fi**, which opens a graphical network
+picker and asks for the password when needed. **Battery status** shows the
+laptop battery percentage when a battery is detected. Both are available from
+the same **Super + Space** menu.
 
 The system menu provides access to functions such as:
 
