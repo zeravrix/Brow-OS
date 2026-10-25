@@ -13,8 +13,8 @@ lb config noauto \
 	--architectures amd64 \
 	--archive-areas "$ARCHIVE_AREAS" \
 	--parent-archive-areas "$ARCHIVE_AREAS" \
-	--firmware-chroot true \
-	--firmware-binary true \
+	--firmware-chroot false \
+	--firmware-binary false \
 	--apt-recommends false \
 	--security true \
 	--updates true \
