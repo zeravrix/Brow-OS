@@ -26,6 +26,10 @@ if [[ -z "$iso" ]]; then
   echo "No ISO was produced; see image/build.log" >&2
   exit 1
 fi
-sha256sum "$iso" > "$iso.sha256"
+iso_name="${iso#./}"
+# Store a filename relative to the ISO directory, not the leading "./" that
+# find emits. This makes the companion checksum valid both here and from the
+# repository root in CI.
+sha256sum "$iso_name" > "$iso_name.sha256"
 echo "Built: $here/image/$iso"
-cat "$iso.sha256"
+cat "$iso_name.sha256"
