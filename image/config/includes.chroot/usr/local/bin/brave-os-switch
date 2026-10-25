@@ -1,0 +1,64 @@
+#!/bin/sh
+# Turns the Bluetooth and USB-drive services on or off. Both are masked in the
+# image, so they use no memory and cannot start until you turn them on.
+#   brave-os-switch bluetooth on|off|pair|status
+#   brave-os-switch usb on|off|status
+# "on" stays on, also after a restart, until you run "off".
+
+if [ "$(id -u)" -ne 0 ]; then
+	exec sudo "$0" "$@"
+fi
+
+usage() {
+	echo "Usage: brave-os-switch bluetooth on|off|pair|status"
+	echo "       brave-os-switch usb on|off|status"
+	exit 1
+}
+
+what=${1:-}
+act=${2:-}
+case "$what" in
+	bluetooth) unit=bluetooth.service ;;
+	usb) unit=udisks2.service ;;
+	*) usage ;;
+esac
+
+turn_on() {
+	systemctl unmask "$unit"
+	if [ "$what" = "bluetooth" ]; then
+		rfkill unblock bluetooth 2>/dev/null || true
+	fi
+	systemctl start "$unit" || { echo "Could not start $unit (is it installed?)" >&2; exit 1; }
+}
+
+case "$act" in
+	on)
+		turn_on
+		if [ "$what" = "usb" ]; then
+			echo "USB drives are on. Find your drive with:  lsblk"
+			echo "Mount it:   udisksctl mount -b /dev/sdb1     (use your drive's name)"
+			echo "Then it appears under /media in Brave's file dialogs."
+			echo "Before unplugging:  udisksctl unmount -b /dev/sdb1"
+		else
+			echo "Bluetooth is on. To pair a device run:  brave-os-switch bluetooth pair"
+		fi
+		;;
+	off)
+		systemctl stop "$unit"
+		systemctl mask "$unit"
+		echo "$what is off."
+		;;
+	pair)
+		[ "$what" = "bluetooth" ] || usage
+		turn_on
+		echo "In the prompt that opens, type:  power on   then   scan on"
+		echo "then, for your device:  pair XX:XX:XX:XX:XX:XX   trust XX:XX:XX:XX:XX:XX   connect XX:XX:XX:XX:XX:XX"
+		echo "Type  quit  when done."
+		exec bluetoothctl
+		;;
+	status)
+		systemctl is-active "$unit"
+		systemctl is-enabled "$unit"
+		;;
+	*) usage ;;
+esac

@@ -1,0 +1,236 @@
+#!/bin/sh
+# Save file for the live USB session, like Puppy Linux.
+# Your browser accounts, settings, bookmarks and saved Wi-Fi networks are copied into
+# one file (brave-os/save.img) on a hard-drive partition you choose. At the next boot
+# the file is found and loaded automatically. An installed system does not need this.
+#
+#   brave-os-save save            create the save file the first time, then update it
+#   brave-os-save save --no-relaunch   same, without reopening Brave (used when shutting down)
+#   brave-os-save restore         load the save file (run at boot by a service)
+#   brave-os-save status          show where the save file is
+#
+# The save file is NOT encrypted. Anyone who gets the drive can read the saved logins.
+
+IMG_DIR=brave-os
+IMG_NAME=save.img
+LOC=/run/brave-os-save.loc
+OKFILE=/run/brave-os-save.ok
+MNT=/run/brave-os-target
+IMGMNT=/run/brave-os-image
+SUPPORTED="ext4 ext3 ext2 btrfs xfs vfat exfat ntfs"
+
+mode=${1:-}
+relaunch=1
+[ "${2:-}" = "--no-relaunch" ] && relaunch=0
+
+if [ "$(id -u)" -ne 0 ]; then
+	exec sudo env "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-}" "$0" "$@"
+fi
+
+log() { echo "$*"; logger -t brave-os-save -- "$*" 2>/dev/null; }
+
+pause_if_tty() { [ -t 0 ] && { printf 'Press Enter to continue... '; read -r _; }; }
+
+fail() {
+	log "ERROR: $*"
+	cleanup
+	pause_if_tty
+	exit 1
+}
+
+cleanup() {
+	umount "$IMGMNT" 2>/dev/null
+	umount "$MNT" 2>/dev/null
+}
+
+user=$(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }')
+home=$(getent passwd "$user" | cut -d: -f6)
+
+mount_type() {
+	case "$1" in ntfs) echo ntfs3 ;; *) echo "$1" ;; esac
+}
+
+ro_opts() {
+	case "$1" in
+		ext2 | ext3 | ext4) echo "ro,noload" ;;
+		xfs) echo "ro,norecovery" ;;
+		*) echo "ro" ;;
+	esac
+}
+
+partitions() {
+	lsblk -rpno PATH,TYPE 2>/dev/null | awk '$2 == "part" { print $1 }'
+}
+
+usable_partition() { # dev -> prints fstype if supported and not mounted
+	p=$1
+	fs=$(blkid -o value -s TYPE "$p" 2>/dev/null) || return 1
+	case " $SUPPORTED " in *" $fs "*) ;; *) return 1 ;; esac
+	[ -z "$(lsblk -rno MOUNTPOINT "$p" 2>/dev/null | tr -d ' \n')" ] || return 1
+	echo "$fs"
+}
+
+copy_rules() {
+	cat <<'EOF'
+--exclude=.cache
+--exclude=Singleton*
+--exclude=Cache
+--exclude=Code Cache
+--exclude=GPUCache
+--exclude=GrShaderCache
+--exclude=ShaderCache
+--exclude=DawnCache
+--exclude=CacheStorage
+EOF
+}
+
+# rsync wrapper: $1 source/ $2 destination/
+copy_dir() {
+	copy_rules > /run/brave-os-excludes.$$
+	sed -i 's/^--exclude=//' /run/brave-os-excludes.$$
+	rsync -aH --numeric-ids --delete --exclude-from=/run/brave-os-excludes.$$ "$1" "$2"
+	rc=$?
+	rm -f /run/brave-os-excludes.$$
+	return $rc
+}
+
+stop_browser() {
+	pkill -f brave-os-supervise 2>/dev/null
+	pkill -TERM -f '/opt/brave.com/brave/' 2>/dev/null
+	i=0
+	while pgrep -f '/opt/brave.com/brave/' >/dev/null 2>&1 && [ "$i" -lt 15 ]; do
+		sleep 1
+		i=$((i + 1))
+	done
+	pkill -KILL -f '/opt/brave.com/brave/' 2>/dev/null
+	return 0
+}
+
+restart_browser() {
+	uid=$(id -u "$user")
+	runuser -u "$user" -- env "XDG_RUNTIME_DIR=/run/user/$uid" "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0}" \
+		setsid /usr/local/bin/brave-os-supervise >/dev/null 2>&1 &
+}
+
+do_restore() {
+	[ -d /run/live/medium ] || exit 0
+	[ -n "$user" ] || exit 0
+	mkdir -p "$MNT" "$IMGMNT"
+	for p in $(partitions); do
+		fs=$(usable_partition "$p") || continue
+		timeout 20 mount -t "$(mount_type "$fs")" -o "$(ro_opts "$fs")" "$p" "$MNT" 2>/dev/null || continue
+		img="$MNT/$IMG_DIR/$IMG_NAME"
+		if [ -f "$img" ] && mount -o loop,ro,noload "$img" "$IMGMNT" 2>/dev/null; then
+			log "loading saved session from $p"
+			[ -d "$IMGMNT/home" ] && copy_dir "$IMGMNT/home/" "$home/"
+			if [ -d "$IMGMNT/nm" ]; then
+				mkdir -p /etc/NetworkManager/system-connections
+				rsync -a --numeric-ids "$IMGMNT/nm/" /etc/NetworkManager/system-connections/
+				nmcli connection reload 2>/dev/null || true
+			fi
+			chown "$user" "$home" 2>/dev/null
+			printf 'DEV=%s\nFS=%s\n' "$p" "$fs" > "$LOC"
+			cleanup
+			exit 0
+		fi
+		umount "$MNT" 2>/dev/null
+	done
+	log "no save file found; starting with a fresh session"
+	exit 0
+}
+
+choose_target() {
+	echo "No save file yet. Choose the hard-drive partition to keep it on."
+	echo "(Partitions that are in use, and the USB stick you booted from, are not listed.)"
+	echo
+	n=0
+	list=""
+	for p in $(partitions); do
+		fs=$(usable_partition "$p") || continue
+		n=$((n + 1))
+		size=$(lsblk -rno SIZE "$p" 2>/dev/null)
+		label=$(blkid -o value -s LABEL "$p" 2>/dev/null)
+		echo "  $n) $p  $fs  $size  $label"
+		list="$list $p:$fs"
+	done
+	[ "$n" -gt 0 ] || fail "No usable partition found (need ext4, btrfs, xfs, FAT32, exFAT or NTFS)."
+	printf 'Number (0 to cancel): '
+	read -r choice
+	case "$choice" in '' | *[!0-9]*) fail "Cancelled." ;; esac
+	[ "$choice" -ge 1 ] && [ "$choice" -le "$n" ] || fail "Cancelled."
+	i=0
+	for item in $list; do
+		i=$((i + 1))
+		[ "$i" -eq "$choice" ] && { DEV=${item%%:*}; FS=${item##*:}; }
+	done
+}
+
+choose_size() {
+	echo
+	echo "Size of the save file (must hold your browser data and any files you keep):"
+	echo "  1) 512 MB   2) 1 GB   3) 2 GB   4) 4 GB"
+	printf 'Number: '
+	read -r s
+	case "$s" in
+		1) SIZE_MB=512 ;;
+		2) SIZE_MB=1024 ;;
+		3) SIZE_MB=2048 ;;
+		4) SIZE_MB=4096 ;;
+		*) fail "Cancelled." ;;
+	esac
+	if [ "$FS" = "vfat" ] && [ "$SIZE_MB" -gt 2048 ]; then
+		fail "FAT32 cannot hold a file that big. Choose 2 GB or less."
+	fi
+}
+
+do_save() {
+	[ -d /run/live/medium ] || { echo "This is an installed system: your settings are saved automatically."; exit 0; }
+	[ -n "$user" ] || fail "No user account found."
+	rm -f "$OKFILE"
+	mkdir -p "$MNT" "$IMGMNT"
+
+	if [ -f "$LOC" ]; then
+		. "$LOC"
+		create=0
+	else
+		choose_target
+		choose_size
+		create=1
+	fi
+
+	stop_browser
+	log "Saving. Please wait..."
+	mount -t "$(mount_type "$FS")" -o rw "$DEV" "$MNT" || fail "Could not open $DEV for writing."
+	if [ "$create" -eq 1 ]; then
+		avail=$(df -Pm "$MNT" | awk 'NR == 2 { print $4 }')
+		[ "${avail:-0}" -gt "$((SIZE_MB + 100))" ] || fail "Not enough free space on $DEV (${avail:-0} MB free)."
+		mkdir -p "$MNT/$IMG_DIR"
+		log "Creating the ${SIZE_MB} MB save file..."
+		truncate -s "${SIZE_MB}M" "$MNT/$IMG_DIR/$IMG_NAME" || fail "Could not create the save file."
+		mkfs.ext4 -q -F -m 0 -L brave-os-save "$MNT/$IMG_DIR/$IMG_NAME" || fail "Could not format the save file."
+	fi
+	[ -f "$MNT/$IMG_DIR/$IMG_NAME" ] || fail "The save file is missing from $DEV."
+	mount -o loop "$MNT/$IMG_DIR/$IMG_NAME" "$IMGMNT" || fail "Could not open the save file."
+	mkdir -p "$IMGMNT/home" "$IMGMNT/nm"
+	copy_dir "$home/" "$IMGMNT/home/" || fail "Copying failed (is the save file full?)."
+	rsync -a --numeric-ids --delete /etc/NetworkManager/system-connections/ "$IMGMNT/nm/" 2>/dev/null
+	sync
+	cleanup
+	printf 'DEV=%s\nFS=%s\n' "$DEV" "$FS" > "$LOC"
+	touch "$OKFILE"
+	log "Saved."
+	[ "$relaunch" -eq 1 ] && restart_browser
+	exit 0
+}
+
+case "$mode" in
+	restore) do_restore ;;
+	save) do_save ;;
+	status)
+		if [ -f "$LOC" ]; then cat "$LOC"; else echo "No save file in use."; fi
+		;;
+	*)
+		echo "Usage: brave-os-save save | restore | status"
+		exit 1
+		;;
+esac

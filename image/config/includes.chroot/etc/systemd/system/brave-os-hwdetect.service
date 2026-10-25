@@ -1,0 +1,10 @@
+[Unit]
+Description=Brave OS hardware change check and firmware fetch
+After=network-online.target NetworkManager.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/usr/local/bin/brave-os-hwdetect

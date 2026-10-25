@@ -1,0 +1,24 @@
+#!/bin/sh
+# Shows where memory goes. Run in the terminal (Windows key):  brave-os-memreport
+# Method: "used" is MemTotal - MemAvailable; per-program numbers add up each
+# process's proportional memory (Pss) from /proc/<pid>/smaps_rollup, so shared
+# memory is not counted twice. Run as root (sudo) to include every process.
+echo "== memory =="
+free -m
+echo
+echo "== swap (zram) =="
+swapon --show 2>/dev/null
+echo
+echo "== proportional memory by program (MB, top 15) =="
+for d in /proc/[0-9]*; do
+	f="$d/smaps_rollup"
+	[ -r "$f" ] || continue
+	pss=$(awk '/^Pss:/ {print $2; exit}' "$f" 2>/dev/null)
+	[ -n "$pss" ] || continue
+	name=$(cat "$d/comm" 2>/dev/null)
+	echo "$pss $name"
+done | awk '{ n=$2; for (i=3;i<=NF;i++) n=n" "$i; s[n]+=$1 } END { for (k in s) printf "%8.1f  %s\n", s[k]/1024, k }' | sort -rn | head -n 15
+echo
+total=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
+avail=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
+echo "Used by everything: $(( (total - avail) / 1024 )) MB of $(( total / 1024 )) MB"

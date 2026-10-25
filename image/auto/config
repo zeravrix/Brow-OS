@@ -1,0 +1,29 @@
+#!/bin/sh
+# Brow OS live-build configuration for Debian 13 (Trixie).
+# Keep all Debian archive components required for firmware and microcode.
+# This is the single place that configures the live-build image.
+
+set -e
+
+ARCHIVE_AREAS="main contrib non-free non-free-firmware"
+
+lb config noauto \
+	--mode debian \
+	--distribution trixie \
+	--architectures amd64 \
+	--archive-areas "$ARCHIVE_AREAS" \
+	--parent-archive-areas "$ARCHIVE_AREAS" \
+	--firmware-chroot true \
+	--firmware-binary true \
+	--apt-recommends false \
+	--security true \
+	--updates true \
+	--binary-images iso-hybrid \
+	--debian-installer none \
+	--image-name brow-os \
+	--iso-application "Brow OS" \
+	--iso-publisher "Brow OS project" \
+	--iso-volume "BROW-OS" \
+	--memtest none \
+	--bootappend-live "boot=live components quiet loglevel=3 username=brave hostname=brow-os locales=en_US.UTF-8 keyboard-layouts=us timezone=UTC" \
+	"${@}"
