@@ -1,7 +1,0 @@
-#!/bin/sh
-# Lets "sudo install os" open the Brave OS installer. sudo finds this file
-# before the real /usr/bin/install; any other use is passed straight through.
-if [ "$#" -eq 1 ] && [ "$1" = "os" ]; then
-	exec /usr/local/bin/install-os
-fi
-exec /usr/bin/install "$@"
