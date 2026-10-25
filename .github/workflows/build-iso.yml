@@ -37,7 +37,12 @@ jobs:
           test -n "$(find image -maxdepth 1 -type f -name '*.iso' -print -quit)"
           for iso in image/*.iso; do
             test -f "$iso.sha256"
-            sha256sum -c "$iso.sha256"
+            # The checksum lists the ISO basename relative to image/.
+            # Validate from that directory so the entry resolves correctly.
+            (
+              cd image
+              sha256sum -c "$(basename "$iso").sha256"
+            )
           done
 
       - name: Upload verified ISO
