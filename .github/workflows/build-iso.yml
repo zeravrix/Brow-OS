@@ -1,4 +1,3 @@
-
 name: Build Brow OS ISO
 
 on:
@@ -10,123 +9,38 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
-
     container:
       image: debian:trixie
       options: --privileged
-
-    defaults:
-      run:
-        shell: bash
-        working-directory: ${{ github.workspace }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
-
-      - name: Verify checkout
-        run: |
-          set -euo pipefail
-
-          echo "=== Workspace ==="
-          pwd
-          ls -la
-
-          echo "=== Commit ==="
-          echo "$GITHUB_SHA"
-
-          echo "=== Required files ==="
-          test -f host-tools/build.sh
-          test -f host-tools/validate.sh
-          test -f image/auto/config
-          test -f image/config/package-lists/firmware.list.chroot
-
-          echo "Repository files are present."
 
       - name: Install build tools
         run: |
           set -euo pipefail
-
           apt-get update
-
-          DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            live-build \
-            debootstrap \
-            xorriso \
-            squashfs-tools \
-            mtools \
-            dosfstools \
-            isolinux \
-            syslinux-common \
-            grub-pc-bin \
-            grub-efi-amd64-bin \
-            ca-certificates \
-            curl \
-            wget \
-            git \
-            sudo
-
-      - name: Verify Brow OS configuration
-        run: |
-          set -euo pipefail
-
-          echo "=== Debian environment ==="
-          cat /etc/os-release
-
-          echo "=== Live-build version ==="
-          lb --version
-
-          echo "=== Build configuration ==="
-          cat image/auto/config
-
-          echo "=== Firmware packages ==="
-          cat image/config/package-lists/firmware.list.chroot
-
-          echo "=== Package lists ==="
-          find image/config/package-lists \
-            -maxdepth 1 -type f -print
-
-      - name: Validate project scripts
-        run: |
-          set -euo pipefail
-
-          bash -n host-tools/build.sh
-          bash -n host-tools/write-usb.sh
-          sh host-tools/validate.sh
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            live-build debootstrap xorriso squashfs-tools mtools dosfstools \
+            isolinux syslinux-common grub-pc-bin grub-efi-amd64-bin \
+            ca-certificates curl wget git sudo
 
       - name: Build Brow OS ISO
         run: |
           set -euo pipefail
-
-          chmod +x host-tools/build.sh
-
+          chmod +x image/auto/config host-tools/build.sh
+          bash -n host-tools/build.sh
+          bash -n host-tools/write-usb.sh
+          sh host-tools/validate.sh
           bash host-tools/build.sh
-
-      - name: Verify ISO output
-        run: |
-          set -euo pipefail
-
-          echo "=== Generated files ==="
-          ls -lah image/
-
-          iso_count=$(find image -maxdepth 1 -type f \
-            -name '*.iso' | wc -l)
-
-          if [ "$iso_count" -eq 0 ]; then
-            echo "ERROR: No ISO was generated."
-            exit 1
-          fi
-
-          echo "=== ISO checksums ==="
+          test -n "$(find image -maxdepth 1 -type f -name '*.iso' -print -quit)"
           for iso in image/*.iso; do
             test -f "$iso.sha256"
             sha256sum -c "$iso.sha256"
           done
 
-      - name: Upload Brow OS ISO
-        if: success()
+      - name: Upload verified ISO
         uses: actions/upload-artifact@v4
         with:
           name: brow-os-iso
@@ -136,12 +50,3 @@ jobs:
             image/build.log
           if-no-files-found: error
           retention-days: 14
-
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: brow-os-build-log
-          path: image/build.log
-          if-no-files-found: ignore
-          retention-days: 7
