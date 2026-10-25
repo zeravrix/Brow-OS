@@ -1,0 +1,6 @@
+#!/bin/sh
+# Menu action: stop any running Brave (frozen or not) and start a fresh one.
+pkill -f /usr/local/bin/brave-os-supervise 2>/dev/null
+pkill -f /opt/brave.com/brave/ 2>/dev/null
+sleep 1
+setsid /usr/local/bin/brave-os-supervise >/dev/null 2>&1 &

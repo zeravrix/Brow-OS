@@ -1,0 +1,9 @@
+// Automatic updates: Debian security and updates, plus Brave's release repository.
+// The Brave "site=" pattern is unverified; check with `unattended-upgrade --dry-run -d`.
+Unattended-Upgrade::Origins-Pattern {
+	"origin=Debian,codename=${distro_codename},label=Debian";
+	"origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+	"origin=Debian,codename=${distro_codename}-updates";
+	"site=brave-browser-apt-release.s3.brave.com";
+};
+Unattended-Upgrade::Automatic-Reboot "false";

@@ -1,0 +1,39 @@
+#!/bin/sh
+# Opens the graphical installer (Calamares) to install Brave OS onto a disk.
+# Run from the live USB session:  sudo install os    or    sudo install-os
+# It refuses to run on an already installed system unless given --force.
+
+if [ "$(id -u)" -ne 0 ]; then
+	exec sudo "$0" "$@"
+fi
+
+if [ ! -d /run/live/medium ] && [ "${1:-}" != "--force" ]; then
+	echo "This is not the live USB session. The installer is meant to run from the USB stick."
+	echo "Run 'install-os --force' only if you really want to open it here."
+	exit 1
+fi
+
+if ! command -v calamares >/dev/null 2>&1; then
+	echo "The installer (calamares) is not installed in this image." >&2
+	exit 1
+fi
+
+# sudo resets the environment, so find the graphical session of the user who called us.
+if [ -n "${SUDO_UID:-}" ]; then
+	XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$SUDO_UID}"
+	if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+		for s in "$XDG_RUNTIME_DIR"/wayland-*; do
+			case "$s" in *.lock) continue ;; esac
+			if [ -S "$s" ]; then
+				WAYLAND_DISPLAY=$(basename "$s")
+				break
+			fi
+		done
+	fi
+	export XDG_RUNTIME_DIR WAYLAND_DISPLAY
+fi
+QT_QPA_PLATFORM=wayland
+export QT_QPA_PLATFORM
+
+echo "Opening the installer window. It will ask which disk to use and erase."
+exec calamares

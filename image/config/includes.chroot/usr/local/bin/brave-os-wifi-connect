@@ -1,0 +1,35 @@
+#!/bin/sh
+# Connects to the Nth network from the cache written by brave-os-wifi-pipemenu.
+# Asks for a password with fuzzel if the network is secured and not yet saved.
+# Falls back to the text network tool if fuzzel cannot do it.
+cache="${XDG_RUNTIME_DIR:-/tmp}/brave-os-wifi.list"
+tab=$(printf '\t')
+
+n="${1:-}"
+case "$n" in
+	'' | *[!0-9]*) exit 1 ;;
+esac
+
+line=$(sed -n "${n}p" "$cache")
+[ -n "$line" ] || exit 1
+ssid=${line%%"$tab"*}
+rest=${line#*"$tab"}
+sec=${rest#*"$tab"}
+
+# A saved connection with this name: just bring it up.
+if nmcli -t -f NAME connection show | grep -Fxq -- "$ssid"; then
+	exec nmcli connection up id "$ssid"
+fi
+
+# Open network.
+if [ -z "$sec" ] || [ "$sec" = "--" ]; then
+	exec nmcli dev wifi connect "$ssid"
+fi
+
+# Secured network: ask for the password.
+if command -v fuzzel >/dev/null 2>&1; then
+	pw=$(fuzzel --dmenu --password --lines 0 --prompt "Password for $ssid: " < /dev/null) || exec foot -e nmtui-connect
+	[ -n "$pw" ] || exit 1
+	exec nmcli dev wifi connect "$ssid" password "$pw"
+fi
+exec foot -e nmtui-connect

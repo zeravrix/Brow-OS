@@ -1,0 +1,72 @@
+#!/bin/sh
+# Hardware change check. Runs from a timer shortly after boot. If the set of
+# hardware IDs changed since the last successful run and the kernel reports
+# missing firmware, installs the matching firmware package from the Debian
+# archive (signed by apt). Never runs on the boot path and never fetches
+# anything except Debian packages.
+set -u
+
+state=/var/lib/brave-os
+fp_file="$state/hw-fingerprint"
+tries_file="$state/hw-tries"
+mkdir -p "$state"
+
+log() { logger -t brave-os-hwdetect -- "$*"; echo "$*"; }
+
+fp=$(find /sys/devices -name modalias -type f -exec cat {} + 2>/dev/null | sort -u | sha256sum | cut -d' ' -f1)
+if [ -f "$fp_file" ] && [ "$(cat "$fp_file")" = "$fp" ]; then
+	exit 0
+fi
+
+# Needs a working network. Try again later if there is none.
+if [ "$(nmcli -t -f STATE general 2>/dev/null)" != "connected" ]; then
+	log "network not connected; will retry later"
+	exit 0
+fi
+
+tries=$(cat "$tries_file" 2>/dev/null || echo 0)
+tries=$((tries + 1))
+echo "$tries" > "$tries_file"
+
+# Prefer Debian's own detection tool if it is installed.
+if command -v isenkram-autoinstall-firmware >/dev/null 2>&1; then
+	log "running isenkram-autoinstall-firmware"
+	isenkram-autoinstall-firmware && ok=1 || ok=0
+else
+	# Fallback: map firmware files named in kernel errors to a fixed allow-list
+	# of Debian firmware packages.
+	missing=$(journalctl -k -b --no-pager 2>/dev/null \
+		| sed -n 's/.*Direct firmware load for \([^ ]*\) failed.*/\1/p' | sort -u)
+	pkgs=""
+	for f in $missing; do
+		case "$f" in
+			iwlwifi*) pkgs="$pkgs firmware-iwlwifi" ;;
+			rtl* | rtw* | rtlwifi/*) pkgs="$pkgs firmware-realtek" ;;
+			ath* | ar3k/* | htc_*) pkgs="$pkgs firmware-atheros" ;;
+			brcm/*) pkgs="$pkgs firmware-brcm80211" ;;
+			mediatek/* | mt7*) pkgs="$pkgs firmware-mediatek" ;;
+			amdgpu/* | radeon/*) pkgs="$pkgs firmware-amd-graphics" ;;
+			i915/*) pkgs="$pkgs firmware-intel-graphics" ;;
+			*) pkgs="$pkgs firmware-misc-nonfree" ;;
+		esac
+	done
+	pkgs=$(printf '%s\n' $pkgs | sort -u)
+	ok=1
+	if [ -n "$pkgs" ]; then
+		apt-get update -qq || ok=0
+		for p in $pkgs; do
+			log "installing $p"
+			DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$p" || ok=0
+		done
+		log "firmware installed; reboot to load it"
+	else
+		log "no missing firmware reported"
+	fi
+fi
+
+# Remember this hardware set once it worked, or after three attempts.
+if [ "${ok:-0}" -eq 1 ] || [ "$tries" -ge 3 ]; then
+	echo "$fp" > "$fp_file"
+	rm -f "$tries_file"
+fi
+exit 0

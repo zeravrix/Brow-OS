@@ -1,0 +1,7 @@
+#!/bin/sh
+# Optional video-decode helper for older Intel graphics. Failure here must not
+# stop the build: the package may not exist in the archive.
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y --no-install-recommends i965-va-driver || echo "i965-va-driver not available; skipping"
+apt-get clean
+exit 0

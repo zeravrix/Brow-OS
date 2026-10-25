@@ -1,0 +1,46 @@
+#!/bin/sh
+# Generates the "Wi-Fi networks" submenu for labwc (pipemenu XML on stdout).
+# Each network item runs brave-os-wifi-connect with its number in a cache file.
+cache="${XDG_RUNTIME_DIR:-/tmp}/brave-os-wifi.list"
+tab=$(printf '\t')
+
+esc() {
+	sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+}
+
+nmcli dev wifi rescan >/dev/null 2>&1
+
+# nmcli -t escapes ':' as '\:' and '\' as '\\'. SSID is everything before the
+# last two fields (signal, security). Output: ssid<TAB>signal<TAB>security.
+nmcli -t -f SSID,SIGNAL,SECURITY dev wifi list 2>/dev/null \
+	| sed -E -n 's/^(.+):([0-9]+):([^:]*)$/\1\t\2\t\3/p' \
+	| sed -e 's/\\:/:/g' -e 's/\\\\/\\/g' \
+	| sort -t "$tab" -k2,2nr \
+	| awk -F'\t' '$1 != "" && !seen[$1]++' > "$cache"
+
+echo '<openbox_pipe_menu>'
+
+active=$(nmcli -t -f ACTIVE,SSID dev wifi 2>/dev/null | sed -n 's/^yes://p' | head -n1)
+if [ -n "$active" ]; then
+	printf '<item label="Connected: %s" />\n' "$(printf '%s' "$active" | esc)"
+	echo '<separator />'
+fi
+
+i=0
+while IFS="$tab" read -r ssid signal sec; do
+	i=$((i + 1))
+	label="$ssid  ($signal%)"
+	if [ -n "$sec" ] && [ "$sec" != "--" ]; then
+		label="$label  [secured]"
+	fi
+	printf '<item label="%s"><action name="Execute" command="/usr/local/bin/brave-os-wifi-connect %s" /></item>\n' \
+		"$(printf '%s' "$label" | esc)" "$i"
+done < "$cache"
+
+if [ "$i" -eq 0 ]; then
+	echo '<item label="No networks found (open this menu again to rescan)" />'
+fi
+
+echo '<separator />'
+echo '<item label="Advanced network setup"><action name="Execute" command="foot -e nmtui" /></item>'
+echo '</openbox_pipe_menu>'
