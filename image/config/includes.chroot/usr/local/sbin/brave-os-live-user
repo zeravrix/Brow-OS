@@ -1,0 +1,17 @@
+#!/bin/sh
+# Ensure the live account exists before the tty autologin starts.
+set -eu
+
+if ! getent passwd brave >/dev/null; then
+	useradd --no-create-home --home-dir /home/brave --shell /bin/bash brave
+fi
+
+home=$(getent passwd brave | cut -d: -f6)
+group=$(id -gn brave)
+install -d -o brave -g "$group" "$home"
+
+for group in audio video plugdev netdev sudo bluetooth; do
+	if getent group "$group" >/dev/null; then
+		usermod -aG "$group" brave
+	fi
+done

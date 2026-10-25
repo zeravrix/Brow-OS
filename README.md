@@ -191,6 +191,11 @@ network picker; secured networks ask for their password in a graphical prompt.
 
 The regular Brave address bar and tabs remain available as described above.
 
+The live USB boot menu displays the Brow OS logo and name, then starts the
+default Brow OS entry automatically after a short countdown. On the live USB,
+the `brave` session logs in automatically and opens Brave; the same shortcuts
+are refreshed at each live-session start even when an older save file exists.
+
 ---
 
 ## 📡 Bluetooth & USB Storage

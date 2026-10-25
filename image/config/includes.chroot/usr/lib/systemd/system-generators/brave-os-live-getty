@@ -1,0 +1,21 @@
+#!/bin/sh
+# Override only the live USB's first console. Installed systems keep Debian's
+# ordinary getty login and do not inherit this automatic live-session login.
+set -eu
+
+early_output=${2:-}
+[ -n "$early_output" ] || exit 0
+[ -d /run/live/medium ] || exit 0
+
+dropin="$early_output/getty@tty1.service.d/50-brave-os-live.conf"
+mkdir -p "${dropin%/*}"
+cat > "$dropin" <<'EOF'
+[Unit]
+Wants=live-config.service brave-os-restore.service
+After=live-config.service brave-os-restore.service
+
+[Service]
+ExecStartPre=-/usr/local/sbin/brave-os-live-user
+ExecStart=
+ExecStart=-/sbin/agetty --autologin brave --noclear --noissue %I $TERM
+EOF

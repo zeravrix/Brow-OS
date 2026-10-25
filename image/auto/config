@@ -25,5 +25,5 @@ lb config noauto \
 	--iso-publisher "Brow OS project" \
 	--iso-volume "BROW-OS" \
 	--memtest none \
-	--bootappend-live "boot=live components quiet loglevel=3 username=brave hostname=brow-os locales=en_US.UTF-8 keyboard-layouts=us timezone=UTC" \
+	--bootappend-live "boot=live components quiet loglevel=3 username=brave nottyautologin hostname=brow-os locales=en_US.UTF-8 keyboard-layouts=us timezone=UTC" \
 	"${@}"

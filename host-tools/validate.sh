@@ -9,7 +9,8 @@ check() { # description, command...
 	if "$@" >/dev/null 2>&1; then echo "ok    $d"; else echo "FAIL  $d"; fail=1; fi
 }
 
-for f in $inc/usr/local/bin/* $inc/etc/profile.d/*.sh image/auto/config \
+for f in $inc/usr/local/bin/* $inc/usr/local/sbin/* $inc/usr/lib/systemd/system-generators/* \
+	$inc/etc/profile.d/*.sh image/auto/config \
 	image/config/hooks/live/*.chroot image/config/hooks/live/*.hook.binary host-tools/*.sh; do
 	check "sh -n $f" sh -n "$f"
 done

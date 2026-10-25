@@ -1,40 +1,62 @@
 #!/bin/sh
-# Start the default live entry automatically and remove Debian's splash art.
-# Syslinux counts TIMEOUT in tenths of a second; 30 gives a short recovery
-# window while booting without an Enter key press. GRUB keeps a similar hidden
-# recovery window for UEFI systems.
+# Brand both ISO boot paths while keeping a short hands-free boot countdown.
 set -eu
+
+branding="config/hooks/live/branding-splash.png"
+
+if [ -f "$branding" ]; then
+	install -D -m 0644 "$branding" binary/isolinux/splash.png
+	install -D -m 0644 "$branding" binary/boot/grub/brow-os.png
+fi
 
 isolinux_cfg="binary/isolinux/isolinux.cfg"
 if [ -f "$isolinux_cfg" ]; then
-	# A zero timeout waits forever at the Debian splash screen.
-	sed -i -E 's/^([[:space:]]*TIMEOUT[[:space:]]+)0([[:space:]]*)$/\130\2/' "$isolinux_cfg"
-	# Suppress the interactive boot prompt, menu and Debian background image.
-	sed -i -E 's/^([[:space:]]*)PROMPT[[:space:]]+1([[:space:]]*)$/\1PROMPT 0\2/' "$isolinux_cfg"
-	grep -q '^MENU HIDDEN$' "$isolinux_cfg" || sed -i '1i MENU HIDDEN' "$isolinux_cfg"
-	# Name the default entry for the user's OS rather than Debian Live.
-	sed -i -E 's/^([[:space:]]*MENU TITLE[[:space:]]+).*/\1Brow OS/' "$isolinux_cfg"
-	# The bootloader theme may put its background directive in an included file.
+	# Show the branded menu briefly, then start the default Brow OS entry.
+	sed -i -E \
+		-e '/^[[:space:]]*MENU HIDDEN([[:space:]]|$)/Id' \
+		-e 's/^([[:space:]]*PROMPT[[:space:]]+).*/\1 0/I' \
+		-e 's/^([[:space:]]*TIMEOUT[[:space:]]+).*/\1 30/I' \
+		-e 's/^([[:space:]]*MENU TITLE[[:space:]]+).*/\1Brow OS/I' \
+		-e 's|^[[:space:]]*MENU BACKGROUND[[:space:]]+.*|MENU BACKGROUND splash.png|I' \
+		"$isolinux_cfg"
+	grep -qiE '^[[:space:]]*PROMPT[[:space:]]' "$isolinux_cfg" || printf '\nPROMPT 0\n' >> "$isolinux_cfg"
+	grep -qiE '^[[:space:]]*TIMEOUT[[:space:]]' "$isolinux_cfg" || printf 'TIMEOUT 30\n' >> "$isolinux_cfg"
+	grep -qiE '^[[:space:]]*MENU TITLE[[:space:]]' "$isolinux_cfg" || printf 'MENU TITLE Brow OS\n' >> "$isolinux_cfg"
+	grep -qiE '^[[:space:]]*MENU BACKGROUND[[:space:]]' "$isolinux_cfg" || printf 'MENU BACKGROUND splash.png\n' >> "$isolinux_cfg"
 	find binary/isolinux -type f \( -name '*.cfg' -o -name '*.cfg.in' \) \
-		-exec sed -i -E '/^[[:space:]]*MENU BACKGROUND[[:space:]]+/d' {} +
+		-exec sed -i -E \
+			-e '/^[[:space:]]*MENU HIDDEN([[:space:]]|$)/Id' \
+			-e 's/^([[:space:]]*MENU TITLE[[:space:]]+).*/\1Brow OS/I' \
+			-e 's|^[[:space:]]*MENU BACKGROUND[[:space:]]+.*|MENU BACKGROUND splash.png|I' \
+			-e 's/Debian GNU\/Linux Live/Brow OS/g' {} +
+	rm -f binary/isolinux/splash.svg
 fi
 
 grub_cfg="binary/boot/grub/grub.cfg"
 if [ -f "$grub_cfg" ]; then
-	# UEFI boot should also continue automatically; Shift/Esc can still expose
-	# the menu for recovery and troubleshooting.
-	if grep -qE '^[[:space:]]*set timeout_style=' "$grub_cfg"; then
-		sed -i -E 's/^[[:space:]]*set timeout_style=.*/set timeout_style=hidden/' "$grub_cfg"
-	else
-		sed -i '1i set timeout_style=hidden' "$grub_cfg"
-	fi
-	if grep -qE '^[[:space:]]*set timeout=' "$grub_cfg"; then
-		sed -i -E 's/^[[:space:]]*set timeout=.*/set timeout=3/' "$grub_cfg"
-	else
-		sed -i '1i set timeout=3' "$grub_cfg"
-	fi
-	# Remove Debian's themed backdrop when the generated file has one.
-	sed -i -E '/^[[:space:]]*(set theme=|background_image )/d' "$grub_cfg"
-	find binary/boot/grub -type f -name '*.cfg' \
-		-exec sed -i -E '/^[[:space:]]*(set theme=|background_image )/d' {} +
+	# Keep the UEFI menu visible, branded, and able to continue without input.
+	sed -i -E \
+		-e '/^[[:space:]]*set timeout_style=/d' \
+		-e '/^[[:space:]]*set timeout=/d' \
+		-e '/^[[:space:]]*(set theme=|background_image )/d' \
+		-e 's/Debian GNU\/Linux Live/Brow OS/g' \
+		-e 's/Debian GNU\/Linux/Brow OS/g' \
+		"$grub_cfg"
+	grub_tmp="${grub_cfg}.brave-os"
+	{
+		cat <<'EOF'
+set gfxmode=auto
+insmod all_video
+insmod gfxterm
+insmod png
+terminal_output gfxterm
+set menu_color_normal="white/black"
+set menu_color_highlight="black/light-gray"
+background_image /boot/grub/brow-os.png
+set timeout_style=menu
+set timeout=3
+EOF
+		cat "$grub_cfg"
+	} > "$grub_tmp"
+	mv "$grub_tmp" "$grub_cfg"
 fi
